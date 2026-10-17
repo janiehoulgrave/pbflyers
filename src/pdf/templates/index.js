@@ -1,7 +1,7 @@
 import * as rateReduce from './rateReduce.jsx';
 import { yupWeGotThat, askMeHow } from './belowMarket.jsx';
 import { loanOptions, comparison } from './financing.jsx';
-import { softHard, lowdown, buyNowSellLater, doctorLoans, noMI, softPull, condo } from './marketing.jsx';
+import { softHard, lowdown, buyNowSellLater, buyBeforeSelling, doctorLoans, noMI, softPull, condo } from './marketing.jsx';
 import { costOfWaiting } from './costOfWaiting.jsx';
 
 export const TEMPLATES = [
@@ -17,6 +17,7 @@ export const TEMPLATES = [
   noMI,
   doctorLoans,
   buyNowSellLater,
+  buyBeforeSelling,
   condo,
 ];
 export const byId = (id) => TEMPLATES.find((t) => t.meta.id === id);

@@ -234,6 +234,80 @@ export const buyNowSellLater = {
 };
 
 // ---------------------------------------------------------------------------
+// Buy Now, Sell Later: "Yes, you may be able to buy a home before selling" (consumer)
+// ---------------------------------------------------------------------------
+const BNSL2_LEGAL = [
+  'This is a brokered product and is not offered by OriginPoint.',
+  'Applicant subject to credit and underwriting approval. Not all applicants will be approved for financing. Receipt of application does not represent an approval for financing or interest rate guarantee. Restrictions may apply. OriginPoint cannot guarantee that an applicant will be approved or that a closing can occur within a specific timeframe. All dates are estimates and will vary based on all involved parties level of participation at any stage of the loan process. Contact OriginPoint for more information',
+];
+const BNSL2_PHOTO_H = 246;
+
+export const buyBeforeSelling = {
+  meta: {
+    id: 'buy-before-selling',
+    name: 'Buy Before You Sell',
+    category: 'Programs',
+    description: '“Yes, you may be able to buy a home before selling your current home.” Departing Residence Program for buyers.',
+    tags: ['buy now sell later', 'departing residence', 'buy before you sell', 'bridge', 'equity', 'non-contingent', 'heloc', 'move up', 'consumer'],
+    needsAgent: true,
+    defaultAgentMode: 'compass',
+  },
+  defaults: { photo: null },
+  fields: [{ section: 'Photo', items: [{ key: 'photo', label: 'Header photo', type: 'photo', aspect: topAspect(BNSL2_PHOTO_H), fallback: 'modernHome' }] }],
+  compute: () => null,
+  Doc: ({ data, agent, assets, bleed }) => {
+    const body = { ...S.sans, fontSize: 10, lineHeight: 1.38, color: C.ink };
+    const bullets = [
+      'Increased purchasing power*',
+      'Can combine with a Home Equity Line of Credit for down payment',
+      'Preserves stock portfolio',
+      'Able to make a non-contingent offer*',
+      'Loans up to $3 million',
+      'Close on a new purchase in 15-days or less**',
+      'Buy now sell later',
+    ];
+    return doc(
+      'Buy Before You Sell',
+      <Sheet bleed={bleed}>
+        <TopPhoto src={data.photoCrop || assets.modernHome} h={BNSL2_PHOTO_H} />
+        {/* soft shade behind the headline so white type stays readable on any photo */}
+        {Array.from({ length: 12 }, (_, i) => (
+          <Abs key={i} x={-BLEED} y={110 + i * 8} w={TRIM_W + BLEED * 2} h={BNSL2_PHOTO_H - 110 - i * 8} style={{ backgroundColor: '#000000', opacity: 0.025 }} />
+        ))}
+        <Abs x={M} y={30} w={160}>
+          <OPLogo assets={assets} variant="white" width={150} />
+        </Abs>
+        <Abs x={M} y={156} w={CONTENT_W}>
+          <T id="headline" style={{ ...S.serif, fontSize: 30, lineHeight: 1.12, color: '#FFFFFF' }} fit={{ w: CONTENT_W, lines: 2 }}>
+            {'YES, you may be able to buy a\nhome before selling your current home'}
+          </T>
+        </Abs>
+        <Abs x={M} y={BNSL2_PHOTO_H + 14} w={CONTENT_W}>
+          <T id="title" style={{ ...S.serif, fontSize: 25, color: C.ink }} fit={{ w: CONTENT_W, lines: 1 }}>Buy Now, Sell Later...</T>
+          <T id="p1" style={{ ...body, marginTop: 8 }} fit={{ w: CONTENT_W, lines: 2 }}>The Departing Residence Program benefits homebuyers by allowing them to take advantage of the equity from their departing residence toward the down payment of a new home purchase.</T>
+          <T id="p2" style={{ ...body, marginTop: 8 }} fit={{ w: CONTENT_W, lines: 4 }}>The real value of this program is that the current primary residence doesn’t need to be sold prior to the new purchase closing. The selling of stocks in a down market can be avoided and will not result in capital gains taxes. With a listing agreement, we do not count your current house payment (we count as $0), in your debt to income ratio allowing you to qualify for a larger mortgage prior to selling, which makes qualifying easier!</T>
+          <T id="p3" style={{ ...body, marginTop: 8 }} fit={{ w: CONTENT_W, lines: 2 }}>The Departing Residence Program is perfect for helping families transition to a new home without the added stress and drama of having to prepare the current primary for sale or rent while they’re still living in the home.</T>
+          <T id="benefitsHead" style={{ ...S.bold, fontSize: 9, letterSpacing: 1.6, color: C.ink, marginTop: 11, marginBottom: 5 }}>PROGRAM BENEFITS</T>
+          <View style={{ flexDirection: 'row' }}>
+            <View style={{ width: 312 }}>
+              <Bullets id="benefitsA" style={body} gap={2} items={bullets.slice(0, 4)} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Bullets id="benefitsB" style={body} gap={2} items={bullets.slice(4)} />
+            </View>
+          </View>
+          <T id="close1" style={{ ...body, marginTop: 8 }} fit={{ w: CONTENT_W, lines: 1 }}>We have several investors for this program so it is important that we talk to make sure we select the best option for you.</T>
+          <T id="close2" style={{ ...S.bold, fontSize: 10.5, color: C.ink, marginTop: 6 }} fit={{ w: CONTENT_W, lines: 1 }}>We can help you get the home of your dreams in this competitive market. Reach out today.</T>
+          <Legal paragraphs={BNSL2_LEGAL} size={5.5} style={{ marginTop: 8 }} maxH={22} />
+        </Abs>
+        <ContactRow assets={assets} agent={agent} />
+        <LicenseFooter assets={assets} agent={agent} brand="compass" />
+      </Sheet>
+    );
+  },
+};
+
+// ---------------------------------------------------------------------------
 // Doctor Loans (consumer)
 // ---------------------------------------------------------------------------
 const DOCTOR_LEGAL = [

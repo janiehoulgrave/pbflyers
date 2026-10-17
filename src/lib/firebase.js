@@ -15,7 +15,8 @@ export const firebaseConfig = {
 // Only these Google accounts can use the app
 export const ALLOWED_EMAILS = ['pegah@originpoint.com', 'janie.houlgrave@compass.com', 'janiehoulgrave@gmail.com'];
 
-export const authEnabled = Boolean(firebaseConfig.apiKey);
+// VITE_NO_AUTH=1 is only used for local testing and the shared preview; the live site always requires sign-in.
+export const authEnabled = Boolean(firebaseConfig.apiKey) && !import.meta.env.VITE_NO_AUTH;
 
 let auth = null;
 if (authEnabled) {

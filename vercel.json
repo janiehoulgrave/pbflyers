@@ -1,0 +1,6 @@
+{
+  "functions": {
+    "api/img.js": { "memory": 1024, "maxDuration": 20 },
+    "api/compass.js": { "maxDuration": 20 }
+  }
+}

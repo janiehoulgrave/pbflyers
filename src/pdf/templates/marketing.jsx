@@ -459,6 +459,69 @@ export const noMI = {
 };
 
 // ---------------------------------------------------------------------------
+// Put money back in your clients' pockets (agent-facing No MI)
+// ---------------------------------------------------------------------------
+const MEET_PHOTO = { x: 330, y: 34, w: 246, h: 324 };
+
+export const putMoneyBack = {
+  meta: {
+    id: 'no-mi-agents',
+    name: 'Put Money Back in Your Clients’ Pockets',
+    category: 'Agent education',
+    description: 'Agent-facing No MI flyer: buyers skip mortgage insurance with as little as 3% down.',
+    tags: ['no mi', 'mortgage insurance', 'pmi', 'agent', 'first time buyer', 'low down payment', '3% down', 'co-branded'],
+    needsAgent: true,
+    defaultAgentMode: 'compass',
+  },
+  defaults: { photo: null },
+  fields: [{ section: 'Photo', items: [{ key: 'photo', label: 'Main photo', type: 'photo', aspect: MEET_PHOTO.w / MEET_PHOTO.h, fallback: 'meeting' }] }],
+  compute: () => null,
+  Doc: ({ data, agent, assets, bleed }) => {
+    const boxW = (CONTENT_W - 28) / 3;
+    const boxText = { ...S.sans, fontSize: 12.5, lineHeight: 1.3, color: C.ink, textAlign: 'center' };
+    const strong = { fontFamily: 'CompassSans', fontWeight: 700, color: BLUE };
+    return doc(
+      'Put Money Back in Your Clients’ Pockets',
+      <Sheet bleed={bleed}>
+        <BleedRect x={0} y={0} w={TRIM_W} h={404} color={BEIGE} sides={['left', 'right', 'top']} />
+        <Abs x={M} y={40} w={160}>
+          <OPLogo assets={assets} variant="black" width={150} />
+        </Abs>
+        <Abs x={M} y={90} w={280}>
+          <T id="headline" style={{ ...S.serif, fontSize: 43, lineHeight: 1.04, color: C.ink }} fit={{ w: 280, lines: 3 }}>{'Put money\nback in your\nclients’'}</T>
+          <View style={{ flexDirection: 'row', marginTop: 4 }}>
+            <View style={{ backgroundColor: BLUE, paddingHorizontal: 9, paddingTop: 1, paddingBottom: 7 }}>
+              <T id="headline2" style={{ ...S.serif, fontSize: 43, color: '#FFFFFF' }} fit={{ w: 262, lines: 1 }}>pockets.</T>
+            </View>
+          </View>
+          <T id="sub" style={{ ...LIGHT, fontSize: 13, lineHeight: 1.38, color: C.ink, marginTop: 18 }} strong={strong} fit={{ w: 280, lines: 3 }}>
+            {'OriginPoint is helping qualified buyers\nskip mortgage insurance with options\nas low as <b>3%\u00a0down</b>.'}
+          </T>
+        </Abs>
+        <Photo src={data.photoCrop || assets.meeting} {...MEET_PHOTO} radius={4} />
+        <Abs x={M} y={428} w={CONTENT_W} style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+          {[
+            '<b>Buyers won’t pay more</b> for putting less than 20% down',
+            'Waiving MI could save them up to <b>$361/month*</b>',
+            'Down payment options\n<b>as low as 3%</b>',
+          ].map((t, i) => (
+            <View key={i} style={{ width: boxW, height: 70, backgroundColor: BLUE_TINT, borderWidth: 1, borderColor: BLUE, borderRadius: 3, justifyContent: 'center', paddingHorizontal: 12 }}>
+              <T id={`box${i}`} style={boxText} strong={strong} fit={{ w: boxW - 24, lines: 2 }}>{t}</T>
+            </View>
+          ))}
+        </Abs>
+        <Abs x={M} y={526} w={CONTENT_W}>
+          <T id="cta" style={{ ...S.bold, fontSize: 14, color: C.ink }} fit={{ w: CONTENT_W, lines: 1 }}>Reach out today.</T>
+          <Legal paragraphs={NOMI_LEGAL} size={6} style={{ marginTop: 10 }} maxH={44} />
+        </Abs>
+        <ContactRow assets={assets} agent={agent} />
+        <LicenseFooter assets={assets} agent={agent} brand="compass" />
+      </Sheet>
+    );
+  },
+};
+
+// ---------------------------------------------------------------------------
 // Soft-pull pre-approval (consumer)
 // ---------------------------------------------------------------------------
 const SOFTPULL_LEGAL = [

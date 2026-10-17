@@ -46,6 +46,7 @@ const ASSETS = {
   condo: BASE + 'brand/condo.jpg',
   rowhouses: BASE + 'brand/rowhouses.jpg',
   modernHome: BASE + 'brand/modern-home.jpg',
+  meeting: BASE + 'brand/meeting.jpg',
   arcsGreen: BASE + 'brand/arcs-green.jpg',
   icon0: BASE + 'brand/icon-0.png',
   icon1: BASE + 'brand/icon-1.png',

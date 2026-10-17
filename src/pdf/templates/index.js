@@ -1,7 +1,7 @@
 import * as rateReduce from './rateReduce.jsx';
 import { yupWeGotThat, askMeHow } from './belowMarket.jsx';
 import { loanOptions, comparison } from './financing.jsx';
-import { softHard, lowdown, buyNowSellLater, buyBeforeSelling, doctorLoans, noMI, softPull, condo } from './marketing.jsx';
+import { softHard, lowdown, buyNowSellLater, buyBeforeSelling, doctorLoans, noMI, putMoneyBack, softPull, condo } from './marketing.jsx';
 import { costOfWaiting } from './costOfWaiting.jsx';
 
 export const TEMPLATES = [
@@ -15,6 +15,7 @@ export const TEMPLATES = [
   softPull,
   softHard,
   noMI,
+  putMoneyBack,
   doctorLoans,
   buyNowSellLater,
   buyBeforeSelling,

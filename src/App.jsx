@@ -92,7 +92,6 @@ function Studio({ user }) {
   const initial = useMemo(load, []);
   const [view, setView] = useState(initial.templateId ? 'editor' : 'gallery');
   const [templateId, setTemplateId] = useState(initial.templateId || null);
-  const [agent, setAgent] = useState({ ...emptyAgent, ...initial.agent });
   // Each flyer keeps its own listing (in its data); recents make it quick to reuse one
   const [recentListings, setRecentListings] = useState(
     initial.recentListings || (initial.listing?.street ? [{ ...emptyListing, ...initial.listing }] : [])
@@ -102,7 +101,12 @@ function Studio({ user }) {
     setRecentListings((r) => [l, ...r.filter((x) => x.street !== l.street)].slice(0, 10));
   };
   const [dataById, setDataById] = useState(initial.dataById || {});
-  const [recentAgents, setRecentAgents] = useState(initial.recentAgents || []);
+  // Each flyer keeps its own agent (in its data); recents make it quick to reuse one
+  const [recentAgents, setRecentAgents] = useState(() => {
+    const r = initial.recentAgents || [];
+    const old = initial.agent;
+    return old?.name && !r.some((x) => x.name === old.name) ? [{ ...emptyAgent, ...old }, ...r] : r;
+  });
   const [bleed, setBleed] = useState(initial.bleed ?? true);
   const [library, setLibrary] = useState(initial.library || []); // photos Pegah uploaded, reusable on any flyer
   const [lender, setLender] = useState({ photoSrc: null, photoCrop: { zoom: 1, x: 0, y: 0 }, ...initial.lender });
@@ -111,8 +115,8 @@ function Studio({ user }) {
   useEffect(() => {
     // The rates-effective date is never carried over to a new session: it must be entered fresh.
     const noDates = Object.fromEntries(Object.entries(dataById).map(([k, v]) => [k, { ...v, date: '' }]));
-    save({ templateId: view === 'editor' ? templateId : null, agent, recentListings, dataById: noDates, recentAgents, bleed, library, lender });
-  }, [view, templateId, agent, recentListings, dataById, recentAgents, bleed, library, lender]);
+    save({ templateId: view === 'editor' ? templateId : null, recentListings, dataById: noDates, recentAgents, bleed, library, lender });
+  }, [view, templateId, recentListings, dataById, recentAgents, bleed, library, lender]);
 
   const editorData = useMemo(
     () => {
@@ -155,8 +159,6 @@ function Studio({ user }) {
               return { ...m, [templateId]: typeof u === 'function' ? u(cur) : u };
             })
           }
-          agent={agent}
-          setAgent={setAgent}
           recentListings={recentListings}
           addRecentListing={addRecentListing}
           setRecentListings={setRecentListings}
@@ -231,20 +233,25 @@ function photoFieldOf(template) {
   return null;
 }
 
-function Editor({ template, data, setData, agent: agentRaw, setAgent: setAgentRaw, recentListings, addRecentListing, setRecentListings, recentAgents, setRecentAgents, bleed, setBleed, library, addToLibrary, setLibrary, lender, setLender }) {
+function Editor({ template, data, setData, recentListings, addRecentListing, setRecentListings, recentAgents, setRecentAgents, bleed, setBleed, library, addToLibrary, setLibrary, lender, setLender }) {
   const { meta } = template;
   const pf = photoFieldOf(template);
   const set = (k, v) => setData((d) => ({ ...d, [k]: v }));
   const listing = useMemo(() => ({ ...emptyListing, ...data.listing }), [data.listing]);
   const setListing = (l) => setData((d) => ({ ...d, listing: l }));
 
-  // Who's on the flyer is remembered per flyer (consumer flyers start as "Just Pegah"); agent details are shared.
-  const mode = data.agentMode || meta.defaultAgentMode || agentRaw.mode || 'compass';
-  const agent = useMemo(() => ({ ...agentRaw, mode }), [agentRaw, mode]);
+  // The agent (and who's on the flyer) is remembered per flyer, so a new flyer starts blank.
+  const mode = data.agentMode || meta.defaultAgentMode || 'compass';
+  const agent = useMemo(() => ({ ...emptyAgent, ...data.agent, mode }), [data.agent, mode]);
   const setAgent = (next) => {
     const { mode: m, ...rest } = next;
-    if (m && m !== mode) setData((d) => ({ ...d, agentMode: m }));
-    setAgentRaw({ ...rest, mode: m || mode });
+    setData((d) => ({ ...d, agent: rest, agentMode: m || mode }));
+  };
+  const addRecentAgent = (a) => {
+    if (!a?.name) return;
+    // keep uploaded headshots only if small enough to store; pulled ones are just a link
+    const photoSrc = a.photoSrc && (a.photoSrc.length < 400000 || a.photoSrc.startsWith('/api/')) ? a.photoSrc : null;
+    setRecentAgents((r) => [{ ...a, photoSrc }, ...r.filter((x) => x.name !== a.name)].slice(0, 12));
   };
 
   // ---- derived images ----
@@ -351,10 +358,7 @@ function Editor({ template, data, setData, agent: agentRaw, setAgent: setAgentRa
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 4000);
     if (meta.needsListing) addRecentListing(listing);
-    if (agent.name && agent.mode !== 'none') {
-      const keep = { ...agent, photoSrc: agent.photoSrc && agent.photoSrc.length < 400000 ? agent.photoSrc : agent.photoSrc?.startsWith('/api/') ? agent.photoSrc : null };
-      setRecentAgents([keep, ...recentAgents.filter((r) => r.name !== agent.name)].slice(0, 12));
-    }
+    if (agent.mode !== 'none') addRecentAgent(agent);
   };
 
   // buydown columns for the comparison flyer's APR fields
@@ -377,7 +381,7 @@ function Editor({ template, data, setData, agent: agentRaw, setAgent: setAgentRa
 
         {/* On listing flyers the agent comes first: Pegah usually finds the listing from the agent's page */}
         {meta.needsAgent && meta.needsListing ? (
-          <AgentSection agent={agent} setAgent={setAgent} agentCircle={agentCircle} recentAgents={recentAgents} setRecentAgents={setRecentAgents} />
+          <AgentSection agent={agent} setAgent={setAgent} agentCircle={agentCircle} recentAgents={recentAgents} setRecentAgents={setRecentAgents} onPulled={addRecentAgent} />
         ) : null}
         {meta.needsListing ? (
           <ListingSection
@@ -438,7 +442,7 @@ function Editor({ template, data, setData, agent: agentRaw, setAgent: setAgentRa
         ))}
 
         {meta.needsAgent && !meta.needsListing ? (
-          <AgentSection agent={agent} setAgent={setAgent} agentCircle={agentCircle} recentAgents={recentAgents} setRecentAgents={setRecentAgents} />
+          <AgentSection agent={agent} setAgent={setAgent} agentCircle={agentCircle} recentAgents={recentAgents} setRecentAgents={setRecentAgents} onPulled={addRecentAgent} />
         ) : null}
 
         <Section title="Pegah's headshot" collapsed>
@@ -687,7 +691,8 @@ function ListingSection({ listing, recent, onForget, onChange, onReplace }) {
   );
 }
 
-function AgentSection({ agent, setAgent, agentCircle, recentAgents, setRecentAgents }) {
+function AgentSection({ agent, setAgent, agentCircle, recentAgents, setRecentAgents, onPulled }) {
+  const [pullKey, setPullKey] = useState(0);
   const s = (k, v) => setAgent({ ...agent, [k]: v });
   const mode = agent.mode || 'compass';
   const setMode = (m) => {
@@ -718,7 +723,10 @@ function AgentSection({ agent, setAgent, agentCircle, recentAgents, setRecentAge
             value=""
             onChange={(e) => {
               const r = recentAgents.find((x) => x.name === e.target.value);
-              if (r) setAgent({ ...emptyAgent, ...r, mode: r.mode || mode });
+              if (r) {
+                setAgent({ ...emptyAgent, ...r, mode: r.mode && r.mode !== 'none' ? r.mode : mode });
+                setPullKey((k) => k + 1);
+              }
             }}
           >
             <option value="">Choose a recent agent…</option>
@@ -728,10 +736,16 @@ function AgentSection({ agent, setAgent, agentCircle, recentAgents, setRecentAge
       ) : null}
       {mode === 'compass' ? (
       <LinkPull
+        key={pullKey}
         kind="agent"
         value={agent.url}
         placeholder="Paste a compass.com agent profile link"
-        onPull={(j) => setAgent({ ...emptyAgent, ...agent, ...j, brokerage: agent.brokerage || 'Compass Real Estate', photoSrc: j.photo ? proxied(j.photo) : agent.photoSrc, photoCrop: { zoom: 1, x: 0, y: 0 } })}
+        onPull={(j) => {
+          // a new agent: start from blank so nothing from the previous agent carries over
+          const next = { ...emptyAgent, ...j, mode, brokerage: 'Compass Real Estate', photoSrc: j.photo ? proxied(j.photo) : null, photoCrop: { zoom: 1, x: 0, y: 0 } };
+          setAgent(next);
+          onPulled(next);
+        }}
       />
       ) : null}
       <label className="field"><Label>Name</Label><input value={agent.name} onChange={(e) => s('name', e.target.value)} /></label>
@@ -757,7 +771,7 @@ function AgentSection({ agent, setAgent, agentCircle, recentAgents, setRecentAge
         onReset={() => setAgent({ ...agent, photoSrc: null })}
       />
       <div className="row-actions">
-        <button type="button" className="btn small ghost" onClick={() => setAgent({ ...emptyAgent, mode })}>Clear agent</button>
+        <button type="button" className="btn small ghost" onClick={() => { setAgent({ ...emptyAgent, mode }); setPullKey((k) => k + 1); }}>Clear agent</button>
         {recentAgents.some((r) => r.name === agent.name) ? (
           <button type="button" className="btn small ghost" onClick={() => setRecentAgents(recentAgents.filter((r) => r.name !== agent.name))}>Remove from recents</button>
         ) : null}

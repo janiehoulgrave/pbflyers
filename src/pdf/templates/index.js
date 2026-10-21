@@ -4,8 +4,10 @@ import { loanOptions, comparison } from './financing.jsx';
 import { softHard, lowdown, buyNowSellLater, buyBeforeSelling, doctorLoans, noMI, putMoneyBack, softPull, condo } from './marketing.jsx';
 import { costOfWaiting } from './costOfWaiting.jsx';
 import { rateImpactFlyer } from './rateImpact.jsx';
+import { eventProducts } from './eventProducts.jsx';
 
 export const TEMPLATES = [
+  eventProducts,
   comparison,
   loanOptions,
   rateReduce,

@@ -19,8 +19,9 @@ export const ALLOWED_EMAILS = ['pegah@originpoint.com', 'janie.houlgrave@compass
 export const authEnabled = Boolean(firebaseConfig.apiKey) && !import.meta.env.VITE_NO_AUTH;
 
 let auth = null;
+export let app = null;
 if (authEnabled) {
-  const app = initializeApp(firebaseConfig, 'pbflyers');
+  app = initializeApp(firebaseConfig, 'pbflyers');
   auth = getAuth(app);
 }
 
@@ -28,3 +29,11 @@ export const isAllowed = (user) => !!user && ALLOWED_EMAILS.includes((user.email
 export const watchUser = (cb) => (auth ? onAuthStateChanged(auth, cb) : (cb(null), () => {}));
 export const signIn = () => signInWithPopup(auth, new GoogleAuthProvider());
 export const logOut = () => auth && signOut(auth);
+
+// Short display name for "edited by" labels
+export function whoIs(user) {
+  const email = (user?.email || '').toLowerCase();
+  if (email.startsWith('pegah')) return 'Pegah';
+  if (email.startsWith('janie')) return 'Janie';
+  return (user?.displayName || email || 'Someone').split(/[ @]/)[0];
+}

@@ -6,8 +6,10 @@ import { registerFonts, EditCtx, setMeasurer } from './pdf/common.jsx';
 import { Field, PhotoControl, AprFields, LoanColumns, Label } from './components/Fields.jsx';
 import Preview from './components/Preview.jsx';
 import { proxied, cropToDataURL, circleDataURL, effectiveDpi, downscale } from './lib/images.js';
-import { authEnabled, watchUser, signIn, logOut, isAllowed } from './lib/firebase.js';
-import { ordinal, num, todayISO } from './lib/format.js';
+import { authEnabled, watchUser, signIn, logOut, isAllowed, whoIs } from './lib/firebase.js';
+import { getStore } from './lib/projects.js';
+import { pdfThumb } from './lib/thumb.js';
+import { ordinal, num, todayISO, shortDate } from './lib/format.js';
 import { BUYDOWNS } from './lib/calc.js';
 
 const BASE = import.meta.env.BASE_URL;
@@ -92,9 +94,11 @@ export default function App() {
 
 function Studio({ user }) {
   const initial = useMemo(load, []);
-  const [view, setView] = useState(initial.templateId ? 'editor' : 'gallery');
-  const [templateId, setTemplateId] = useState(initial.templateId || null);
-  // Each flyer keeps its own listing (in its data); recents make it quick to reuse one
+  const who = whoIs(user || { email: 'janie' });
+  // The flyer being worked on: { templateId, projectId, name, data, dirty }
+  const [work, setWork] = useState(initial.work && byId(initial.work.templateId) ? initial.work : null);
+  const [view, setView] = useState(initial.view === 'editor' && initial.work ? 'editor' : 'gallery');
+  // Each flyer keeps its own listing and agent (in its data); recents make it quick to reuse one
   const [recentListings, setRecentListings] = useState(
     initial.recentListings || (initial.listing?.street ? [{ ...emptyListing, ...initial.listing }] : [])
   );
@@ -102,39 +106,77 @@ function Studio({ user }) {
     if (!l?.street) return;
     setRecentListings((r) => [l, ...r.filter((x) => x.street !== l.street)].slice(0, 10));
   };
-  const [dataById, setDataById] = useState(initial.dataById || {});
-  // Each flyer keeps its own agent (in its data); recents make it quick to reuse one
   const [recentAgents, setRecentAgents] = useState(() => {
     const r = initial.recentAgents || [];
     const old = initial.agent;
     return old?.name && !r.some((x) => x.name === old.name) ? [{ ...emptyAgent, ...old }, ...r] : r;
   });
   const [bleed, setBleed] = useState(initial.bleed ?? true);
-  const [library, setLibrary] = useState(initial.library || []); // photos Pegah uploaded, reusable on any flyer
+  const [library, setLibrary] = useState(initial.library || []); // photos uploaded, reusable on any flyer
   const [lender, setLender] = useState({ photoSrc: null, photoCrop: { zoom: 1, x: 0, y: 0 }, ...initial.lender });
   const addToLibrary = (src) => setLibrary((l) => [src, ...l.filter((x) => x !== src)].slice(0, 8));
 
+  // ---- shared library of saved flyers ----
+  const [store, setStore] = useState(null);
+  const [projects, setProjects] = useState(null);
+  const [libError, setLibError] = useState('');
   useEffect(() => {
-    // The rates-effective date is never carried over to a new session: it must be entered fresh.
-    const noDates = Object.fromEntries(Object.entries(dataById).map(([k, v]) => [k, { ...v, date: '' }]));
-    save({ templateId: view === 'editor' ? templateId : null, recentListings, dataById: noDates, recentAgents, bleed, library, lender });
-  }, [view, templateId, recentListings, dataById, recentAgents, bleed, library, lender]);
+    let unsub = () => {};
+    getStore()
+      .then((st) => {
+        setStore(st);
+        unsub = st.subscribe(setProjects, (e) => setLibError(e?.code === 'permission-denied' ? 'permission' : 'other'));
+      })
+      .catch(() => setLibError('other'));
+    return () => unsub();
+  }, []);
 
-  const editorData = useMemo(
-    () => {
-      if (!templateId || !byId(templateId)) return null;
-      const d = { ...byId(templateId).defaults, ...dataById[templateId] };
-      // rates-effective date starts as today each session (never carried over from a past day)
-      if ('date' in d && !d.date) d.date = todayISO();
-      return d;
-    },
-    [templateId, dataById]
-  );
+  useEffect(() => {
+    save({ view, work, recentListings, recentAgents, bleed, library, lender });
+  }, [view, work, recentListings, recentAgents, bleed, library, lender]);
 
-  const open = (id) => {
-    setTemplateId(id);
+  const editorData = useMemo(() => {
+    if (!work || !byId(work.templateId)) return null;
+    const d = { ...byId(work.templateId).defaults, ...work.data };
+    // a new flyer's rates-effective date starts as today
+    if ('date' in d && !d.date) d.date = todayISO();
+    return d;
+  }, [work]);
+
+  const startNew = (templateId) => {
+    setWork({ templateId, projectId: null, name: '', data: {}, dirty: false, session: Date.now() });
     setView('editor');
     window.scrollTo(0, 0);
+  };
+  const [opening, setOpening] = useState('');
+  const openProject = async (id, { copy } = {}) => {
+    if (!store) return;
+    setOpening(id);
+    try {
+      const p = await store.load(id);
+      if (!p || !byId(p.templateId)) return;
+      setWork({
+        templateId: p.templateId,
+        projectId: copy ? null : p.id,
+        name: copy ? `Copy of ${p.name}` : p.name,
+        data: p.data || {},
+        dirty: !!copy,
+        savedDate: p.data?.date || null,
+        session: Date.now(),
+      });
+      setView('editor');
+      window.scrollTo(0, 0);
+    } finally {
+      setOpening('');
+    }
+  };
+  const saveWork = async ({ name, thumb }) => {
+    if (!store || !work) return null;
+    const snapshot = work;
+    const id = await store.save({ id: snapshot.projectId, templateId: snapshot.templateId, name, data: snapshot.data, thumb }, who);
+    // only clear "dirty" if nothing changed while saving
+    setWork((w) => (w && w.templateId === snapshot.templateId && w.session === snapshot.session ? { ...w, projectId: id, name, dirty: w.data === snapshot.data ? false : w.dirty } : w));
+    return id;
   };
 
   return (
@@ -148,19 +190,33 @@ function Studio({ user }) {
         <div className="spacer" />
         {user ? <button className="btn ghost small" onClick={logOut} title={user.email}>Sign out</button> : null}
       </header>
-      {view === 'gallery' || !templateId ? (
-        <Gallery onOpen={open} />
+      {view === 'gallery' || !work ? (
+        <Gallery
+          onNew={startNew}
+          projects={projects}
+          shared={store?.shared}
+          libError={libError}
+          opening={opening}
+          onOpen={(id) => openProject(id)}
+          onCopy={(id) => openProject(id, { copy: true })}
+          onDelete={(id) => store?.remove(id)}
+          draft={work && !work.projectId && work.dirty ? work : null}
+          onResume={() => setView('editor')}
+        />
       ) : (
         <Editor
-          key={templateId}
-          template={byId(templateId)}
+          key={work.session || work.projectId || 'new-' + work.templateId}
+          template={byId(work.templateId)}
           data={editorData}
           setData={(u) =>
-            setDataById((m) => {
-              const cur = { ...byId(templateId).defaults, ...m[templateId] };
-              return { ...m, [templateId]: typeof u === 'function' ? u(cur) : u };
+            setWork((w) => {
+              const cur = { ...byId(w.templateId).defaults, ...w.data };
+              return { ...w, data: typeof u === 'function' ? u(cur) : u, dirty: true };
             })
           }
+          project={work}
+          onSave={saveWork}
+          canSave={!!store}
           recentListings={recentListings}
           addRecentListing={addRecentListing}
           setRecentListings={setRecentListings}
@@ -180,9 +236,20 @@ function Studio({ user }) {
 }
 
 // ---------- gallery ----------
-function Gallery({ onOpen }) {
+const fmtWhen = (t) => {
+  if (!t) return '';
+  const d = new Date(t);
+  const today = new Date();
+  const same = d.toDateString() === today.toDateString();
+  const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  return same ? `today, ${time}` : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + `, ${time}`;
+};
+
+function Gallery({ onNew, projects, shared, libError, opening, onOpen, onCopy, onDelete, draft, onResume }) {
   const [q, setQ] = useState('');
   const [cat, setCat] = useState('All');
+  const [confirmDel, setConfirmDel] = useState(null);
+  const [showAll, setShowAll] = useState(false);
   const cats = ['All', ...new Set(TEMPLATES.map((t) => t.meta.category))];
   const words = q.toLowerCase().split(/\s+/).filter(Boolean);
   const list = TEMPLATES.filter((t) => {
@@ -190,12 +257,20 @@ function Gallery({ onOpen }) {
     const hay = [t.meta.name, t.meta.description, t.meta.category, ...t.meta.tags].join(' ').toLowerCase();
     return words.every((w) => hay.includes(w));
   });
+  const saved = (projects || []).filter((p) => {
+    const t = byId(p.templateId);
+    if (!t) return false;
+    if (cat !== 'All' && t.meta.category !== cat) return false;
+    const hay = [p.name, t.meta.name, p.updatedBy, p.createdBy].join(' ').toLowerCase();
+    return words.every((w) => hay.includes(w));
+  });
+  const shown = showAll ? saved : saved.slice(0, 8);
   return (
     <main className="gallery">
       <div className="gallery-head">
-        <h1>Choose a flyer</h1>
+        <h1>Flyer Studio</h1>
         <div className="search">
-          <input autoFocus placeholder="Search flyers: buydown, listing, VA, 2-1…" value={q} onChange={(e) => setQ(e.target.value)} />
+          <input autoFocus placeholder="Search saved and new flyers: an address, agent, buydown, VA…" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
         <div className="chips">
           {cats.map((c) => (
@@ -203,9 +278,70 @@ function Gallery({ onOpen }) {
           ))}
         </div>
       </div>
+
+      <section className="lib">
+        <div className="lib-head">
+          <h2>Saved flyers</h2>
+          <span className="lib-note">{shared ? 'Shared between Pegah and Janie. Updates live.' : 'Saved in this browser only (preview mode).'}</span>
+        </div>
+        {libError ? (
+          <p className="warn-box">
+            {libError === 'permission'
+              ? 'The shared library is not switched on yet. The Firestore rules for the pbflyers collections need to be added (see README).'
+              : 'Could not reach the shared library. Check the connection and refresh.'}
+          </p>
+        ) : null}
+        {draft ? (
+          <button className="draft-bar" onClick={onResume}>
+            <b>Unsaved flyer in progress:</b> {byId(draft.templateId)?.meta.name}. <span>Continue editing</span>
+          </button>
+        ) : null}
+        {projects === null && !libError ? <p className="lib-empty">Loading saved flyers…</p> : null}
+        {projects && saved.length === 0 && !libError ? (
+          <p className="lib-empty">{q || cat !== 'All' ? 'No saved flyers match.' : 'No saved flyers yet. Flyers you work on are saved here automatically.'}</p>
+        ) : null}
+        <div className="cards saved">
+          {shown.map((p) => {
+            const t = byId(p.templateId);
+            return (
+              <div key={p.id} className="card saved-card">
+                <button className="card-open" onClick={() => onOpen(p.id)} disabled={!!opening}>
+                  <div className="thumb">{p.thumb ? <img src={p.thumb} alt="" loading="lazy" /> : <img src={`${BASE}thumbs/${p.templateId}.png`} alt="" loading="lazy" />}</div>
+                  <div className="card-body">
+                    <span className="cat">{t.meta.name}</span>
+                    <h3>{p.name || 'Untitled flyer'}</h3>
+                    <p>Edited by {p.updatedBy || 'someone'} · {fmtWhen(p.updatedAt)}</p>
+                  </div>
+                </button>
+                <div className="card-actions">
+                  {opening === p.id ? <span className="lib-note">Opening…</span> : null}
+                  {confirmDel === p.id ? (
+                    <>
+                      <span className="del-q">Delete for both of you?</span>
+                      <button className="btn small ghost danger" onClick={() => { onDelete(p.id); setConfirmDel(null); }}>Delete</button>
+                      <button className="btn small ghost" onClick={() => setConfirmDel(null)}>Cancel</button>
+                    </>
+                  ) : (
+                    <>
+                      <button className="btn small ghost" onClick={() => onCopy(p.id)}>Make a copy</button>
+                      <button className="btn small ghost danger" onClick={() => setConfirmDel(p.id)}>Delete</button>
+                    </>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        {saved.length > 8 ? (
+          <button className="btn small ghost" onClick={() => setShowAll(!showAll)}>{showAll ? 'Show fewer' : `Show all ${saved.length}`}</button>
+        ) : null}
+      </section>
+
+      <section className="lib">
+        <div className="lib-head"><h2>Start a new flyer</h2></div>
       <div className="cards">
         {list.map((t) => (
-          <button key={t.meta.id} className="card" onClick={() => onOpen(t.meta.id)}>
+          <button key={t.meta.id} className="card" onClick={() => onNew(t.meta.id)}>
             <div className="thumb"><img src={`${BASE}thumbs/${t.meta.id}.png`} alt="" loading="lazy" /></div>
             <div className="card-body">
               <span className="cat">{t.meta.category}{t.meta.needsListing ? ' · uses a listing link' : ''}</span>
@@ -216,6 +352,7 @@ function Gallery({ onOpen }) {
         ))}
         {list.length === 0 ? <p className="empty">No flyers match “{q}”.</p> : null}
       </div>
+      </section>
     </main>
   );
 }
@@ -235,7 +372,7 @@ function photoFieldOf(template) {
   return null;
 }
 
-function Editor({ template, data, setData, recentListings, addRecentListing, setRecentListings, recentAgents, setRecentAgents, bleed, setBleed, library, addToLibrary, setLibrary, lender, setLender }) {
+function Editor({ project, onSave, canSave, template, data, setData, recentListings, addRecentListing, setRecentListings, recentAgents, setRecentAgents, bleed, setBleed, library, addToLibrary, setLibrary, lender, setLender }) {
   const { meta } = template;
   const pf = photoFieldOf(template);
   const set = (k, v) => setData((d) => ({ ...d, [k]: v }));
@@ -289,9 +426,21 @@ function Editor({ template, data, setData, recentListings, addRecentListing, set
   useEffect(() => { fontsReady.then(() => setFontsOk(true)); }, []);
   const registry = useRef({});
   const overrides = data.overrides || {};
+  // QR code (for flyers that have one), generated from the link field
+  const [qrCode, setQrCode] = useState(null);
+  const qrText = meta.qrField ? data[meta.qrField] : null;
+  useEffect(() => {
+    if (!qrText) return setQrCode(null);
+    let ok = true;
+    import('qrcode')
+      .then((Q) => (Q.default || Q).toDataURL(String(qrText).trim(), { margin: 0, width: 600, errorCorrectionLevel: 'M', color: { dark: '#101010', light: '#FFFFFF' } }))
+      .then((u) => ok && setQrCode(u))
+      .catch(() => ok && setQrCode(null));
+    return () => (ok = false);
+  }, [qrText]);
   const rawInputs = useMemo(
-    () => ({ data, agent, listing, bleed, pegahCircle, agentCircle, photoCrop, editMode, fontsOk }),
-    [data, agent, listing, bleed, pegahCircle, agentCircle, photoCrop, editMode, fontsOk]
+    () => ({ data, agent, listing, bleed, pegahCircle, agentCircle, photoCrop, qrCode, editMode, fontsOk }),
+    [data, agent, listing, bleed, pegahCircle, agentCircle, photoCrop, qrCode, editMode, fontsOk]
   );
   const inputs = useDebounced(rawInputs, 250);
   const [blob, setBlob] = useState(null);
@@ -322,7 +471,7 @@ function Editor({ template, data, setData, recentListings, addRecentListing, set
     const doc = (
       <EditCtx.Provider value={{ overrides: inp.data.overrides || {}, edit, registry: reg }}>
         <template.Doc
-          data={{ ...inp.data, photoCrop: inp.photoCrop }}
+          data={{ ...inp.data, photoCrop: inp.photoCrop, qrCode: inp.qrCode }}
           agent={{ ...inp.agent, photoCircle: inp.agentCircle }}
           listing={inp.listing}
           assets={{ ...ASSETS, pegahCircle: inp.pegahCircle }}
@@ -361,7 +510,44 @@ function Editor({ template, data, setData, recentListings, addRecentListing, set
     setTimeout(() => URL.revokeObjectURL(a.href), 4000);
     if (meta.needsListing) addRecentListing(listing);
     if (agent.mode !== 'none') addRecentAgent(agent);
+    // every download is kept in the shared library
+    saveNow({ thumbBlob: out });
   };
+
+  // ---- shared library: save, autosave ----
+  const defaultName = [meta.needsListing && listing.street ? listing.street : null, meta.name.replace(/^Financing Solutions: /, ''), agent.mode !== 'none' && agent.name ? agent.name : null]
+    .filter(Boolean)
+    .join(' · ');
+  const [name, setName] = useState(project?.name || '');
+  const [saveState, setSaveState] = useState({ busy: false, err: '', at: null });
+  const latest = useRef({});
+  latest.current = { onSave, blob, name: name.trim() || defaultName, project };
+  const saveNow = async ({ thumbBlob } = {}) => {
+    const L = latest.current;
+    if (!canSave || !L.onSave) return;
+    setSaveState((st) => ({ ...st, busy: true, err: '' }));
+    try {
+      const b = thumbBlob || L.blob;
+      const thumb = b ? await pdfThumb(b).catch(() => null) : null;
+      await L.onSave({ name: L.name, thumb });
+      setSaveState({ busy: false, err: '', at: Date.now() });
+    } catch (e) {
+      setSaveState({ busy: false, err: e?.code === 'permission-denied' ? 'The shared library is not switched on yet (Firestore rules).' : 'Could not save. Check the connection and try again.', at: null });
+    }
+  };
+  // once a flyer is in the library, changes save themselves a moment after the preview updates
+  useEffect(() => {
+    if (!project?.projectId || !project.dirty || !blob || busy || saveState.busy) return;
+    const t = setTimeout(() => saveNow(), 1200);
+    return () => clearTimeout(t);
+  }, [blob, busy, project?.projectId, project?.dirty]); // eslint-disable-line
+  // leaving a changed flyer that was never saved puts it in the library, so nothing is lost
+  useEffect(() => () => {
+    const P = latest.current.project;
+    if (P && !P.projectId && P.dirty && latest.current.blob) saveNow();
+  }, []); // eslint-disable-line
+  const today = todayISO();
+  const staleDate = project?.projectId && 'date' in data && data.date && data.date !== today && project.savedDate === data.date;
 
   // buydown columns for the comparison flyer's APR fields
   const aprColumns = useMemo(() => {
@@ -379,6 +565,42 @@ function Editor({ template, data, setData, recentListings, addRecentListing, set
         <div className="panel-title">
           <span className="cat">{meta.category}</span>
           <h2>{meta.name}</h2>
+        </div>
+
+        <div className="savebox">
+          <label className="field">
+            <span className="lbl">Flyer name in the library</span>
+            <input
+              value={name}
+              placeholder={defaultName}
+              onChange={(e) => setName(e.target.value)}
+              onBlur={() => project?.projectId && (name.trim() || defaultName) !== project.name && saveNow()}
+            />
+          </label>
+          <div className="save-row">
+            <button type="button" className="btn small primary" disabled={!canSave || saveState.busy || !blob} onClick={() => saveNow()}>
+              {project?.projectId ? 'Save now' : 'Save to library'}
+            </button>
+            <span className={'save-status' + (saveState.err ? ' err' : '')}>
+              {saveState.err
+                ? saveState.err
+                : saveState.busy
+                  ? 'Saving…'
+                  : !canSave
+                    ? 'Library unavailable'
+                    : !project?.projectId
+                      ? 'Not saved yet. It saves when you download or leave this flyer.'
+                      : project.dirty
+                        ? 'Unsaved changes, saving shortly…'
+                        : 'Saved. Changes save automatically.'}
+            </span>
+          </div>
+          {staleDate ? (
+            <p className="warn-box small">
+              This flyer’s rates are dated {shortDate(data.date)}. If you’re updating rates, change the date too.{' '}
+              <button type="button" className="linkbtn" onClick={() => set('date', today)}>Set to today</button>
+            </p>
+          ) : null}
         </div>
 
         {/* On listing flyers the agent comes first: Pegah usually finds the listing from the agent's page */}
@@ -813,6 +1035,7 @@ function validate(t, d, agent, listing) {
     }));
     if (missing.length) out.push({ block: true, text: `Still needed: ${missing.join(', ')}.` });
   }
+  if (t.meta.qrField && !/^https?:\/\/\S+\.\S+/.test(String(d[t.meta.qrField] || '').trim())) out.push({ block: true, text: 'Add a full QR code link starting with https://' });
   if (t.meta.needsListing) {
     if (!listing.street) out.push({ block: true, text: 'Add the property address (or pull a listing).' });
     if (!listing.photoSrc && !d.photo?.src) out.push({ text: 'No listing photo yet.' });

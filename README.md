@@ -17,6 +17,23 @@ Flyer builder for Pegah Bozorgnia (OriginPoint). Pick a flyer, pull a Compass ag
 
 Until step 1 is done, the app works without a sign-in screen.
 
+## Turn on the shared library (one time)
+
+Saved flyers live in Firestore in the pegah-briefing project so Pegah and Janie see the same library.
+In the Firebase console: Firestore Database, Rules tab. Paste these two blocks inside the existing
+`match /databases/{database}/documents { ... }` block (leave the dashboard rules as they are), then Publish.
+
+```
+    match /pbflyers_projects/{id} {
+      allow read, write: if request.auth != null && request.auth.token.email in
+        ['pegah@originpoint.com', 'janie.houlgrave@compass.com', 'janiehoulgrave@gmail.com'];
+    }
+    match /pbflyers_images/{id} {
+      allow read, write: if request.auth != null && request.auth.token.email in
+        ['pegah@originpoint.com', 'janie.houlgrave@compass.com', 'janiehoulgrave@gmail.com'];
+    }
+```
+
 ## What's where
 
 - `src/pdf/templates/` one file per flyer family. Disclosure text lives here and is locked in the app.

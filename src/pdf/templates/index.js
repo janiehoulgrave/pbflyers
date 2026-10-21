@@ -3,6 +3,7 @@ import { yupWeGotThat, askMeHow } from './belowMarket.jsx';
 import { loanOptions, comparison } from './financing.jsx';
 import { softHard, lowdown, buyNowSellLater, buyBeforeSelling, doctorLoans, noMI, putMoneyBack, softPull, condo } from './marketing.jsx';
 import { costOfWaiting } from './costOfWaiting.jsx';
+import { rateImpactFlyer } from './rateImpact.jsx';
 
 export const TEMPLATES = [
   comparison,
@@ -12,6 +13,7 @@ export const TEMPLATES = [
   yupWeGotThat,
   askMeHow,
   costOfWaiting,
+  rateImpactFlyer,
   softPull,
   softHard,
   noMI,

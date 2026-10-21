@@ -97,6 +97,7 @@ function Studio({ user }) {
   const who = whoIs(user || { email: 'janie' });
   // The flyer being worked on: { templateId, projectId, name, data, dirty }
   const [work, setWork] = useState(initial.work && byId(initial.work.templateId) ? initial.work : null);
+  const [tab, setTab] = useState(initial.tab || 'new');
   const [view, setView] = useState(initial.view === 'editor' && initial.work ? 'editor' : 'gallery');
   // Each flyer keeps its own listing and agent (in its data); recents make it quick to reuse one
   const [recentListings, setRecentListings] = useState(
@@ -132,8 +133,8 @@ function Studio({ user }) {
   }, []);
 
   useEffect(() => {
-    save({ view, work, recentListings, recentAgents, bleed, library, lender });
-  }, [view, work, recentListings, recentAgents, bleed, library, lender]);
+    save({ view, tab, work, recentListings, recentAgents, bleed, library, lender });
+  }, [view, tab, work, recentListings, recentAgents, bleed, library, lender]);
 
   const editorData = useMemo(() => {
     if (!work || !byId(work.templateId)) return null;
@@ -164,6 +165,7 @@ function Studio({ user }) {
         savedDate: p.data?.date || null,
         session: Date.now(),
       });
+      setTab('recent');
       setView('editor');
       window.scrollTo(0, 0);
     } finally {
@@ -192,6 +194,8 @@ function Studio({ user }) {
       </header>
       {view === 'gallery' || !work ? (
         <Gallery
+          tab={tab}
+          setTab={setTab}
           onNew={startNew}
           projects={projects}
           shared={store?.shared}
@@ -245,7 +249,7 @@ const fmtWhen = (t) => {
   return same ? `today, ${time}` : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + `, ${time}`;
 };
 
-function Gallery({ onNew, projects, shared, libError, opening, onOpen, onCopy, onDelete, draft, onResume }) {
+function Gallery({ tab, setTab, onNew, projects, shared, libError, opening, onOpen, onCopy, onDelete, draft, onResume }) {
   const [q, setQ] = useState('');
   const [cat, setCat] = useState('All');
   const [confirmDel, setConfirmDel] = useState(null);
@@ -269,8 +273,14 @@ function Gallery({ onNew, projects, shared, libError, opening, onOpen, onCopy, o
     <main className="gallery">
       <div className="gallery-head">
         <h1>Flyer Studio</h1>
+        <div className="tabs" role="tablist">
+          <button role="tab" aria-selected={tab === 'new'} className={'tab' + (tab === 'new' ? ' on' : '')} onClick={() => setTab('new')}>New Flyer</button>
+          <button role="tab" aria-selected={tab === 'recent'} className={'tab' + (tab === 'recent' ? ' on' : '')} onClick={() => setTab('recent')}>
+            Recent Projects{projects && projects.length ? <span className="tab-count">{projects.length}</span> : null}
+          </button>
+        </div>
         <div className="search">
-          <input autoFocus placeholder="Search saved and new flyers: an address, agent, buydown, VA…" value={q} onChange={(e) => setQ(e.target.value)} />
+          <input autoFocus placeholder={tab === 'recent' ? 'Search projects: an address, agent, flyer name…' : 'Search flyers: buydown, VA, condo, event…'} value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
         <div className="chips">
           {cats.map((c) => (
@@ -279,11 +289,9 @@ function Gallery({ onNew, projects, shared, libError, opening, onOpen, onCopy, o
         </div>
       </div>
 
+
+      {tab === 'recent' ? (
       <section className="lib">
-        <div className="lib-head">
-          <h2>Saved flyers</h2>
-          <span className="lib-note">{shared ? 'Shared between Pegah and Janie. Updates live.' : 'Saved in this browser only (preview mode).'}</span>
-        </div>
         {libError ? (
           <p className="warn-box">
             {libError === 'permission'
@@ -298,7 +306,7 @@ function Gallery({ onNew, projects, shared, libError, opening, onOpen, onCopy, o
         ) : null}
         {projects === null && !libError ? <p className="lib-empty">Loading saved flyers…</p> : null}
         {projects && saved.length === 0 && !libError ? (
-          <p className="lib-empty">{q || cat !== 'All' ? 'No saved flyers match.' : 'No saved flyers yet. Flyers you work on are saved here automatically.'}</p>
+          <p className="lib-empty">{q || cat !== 'All' ? 'No projects match.' : 'No projects yet. Flyers you work on are saved here automatically.'}</p>
         ) : null}
         <div className="cards saved">
           {shown.map((p) => {
@@ -336,9 +344,8 @@ function Gallery({ onNew, projects, shared, libError, opening, onOpen, onCopy, o
           <button className="btn small ghost" onClick={() => setShowAll(!showAll)}>{showAll ? 'Show fewer' : `Show all ${saved.length}`}</button>
         ) : null}
       </section>
-
+      ) : (
       <section className="lib">
-        <div className="lib-head"><h2>Start a new flyer</h2></div>
       <div className="cards">
         {list.map((t) => (
           <button key={t.meta.id} className="card" onClick={() => onNew(t.meta.id)}>
@@ -353,6 +360,7 @@ function Gallery({ onNew, projects, shared, libError, opening, onOpen, onCopy, o
         {list.length === 0 ? <p className="empty">No flyers match “{q}”.</p> : null}
       </div>
       </section>
+      )}
     </main>
   );
 }

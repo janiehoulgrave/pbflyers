@@ -337,8 +337,8 @@ export const doctorLoans = {
     return doc(
       'Doctor Loans',
       <Sheet bleed={bleed}>
-        <Abs x={(TRIM_W - 150) / 2} y={30} w={150}>
-          <OPLogo assets={assets} variant="black" width={150} />
+        <Abs x={(TRIM_W - 138) / 2} y={22} w={138}>
+          <OPLogo assets={assets} variant="black" width={138} />
         </Abs>
         <Photo src={data.photoCrop || assets.doctor} {...DOC_PHOTO} radius={4} />
         <Abs x={M} y={262} w={CONTENT_W} style={{ alignItems: 'center' }}>

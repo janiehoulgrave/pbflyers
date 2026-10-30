@@ -229,8 +229,8 @@ export function CompassLogo({ width = 95, color = '#FFFFFF' }) {
   );
 }
 
-// OriginPoint logo pngs: op-white 1079x208, op-black same, op-dots 1464x298
-export const OP_RATIO = 208 / 1079;
+// OriginPoint Mortgage logo pngs: op-white 1600x424, op-black same, op-dots 1464x298
+export const OP_RATIO = 424 / 1600;
 export const OP_DOTS_RATIO = 298 / 1464;
 export const OPLogo = ({ assets, variant = 'black', width = 120 }) => {
   const src = variant === 'white' ? assets.opWhite : variant === 'dots' ? assets.opDots : assets.opBlack;
@@ -248,8 +248,8 @@ export function CobrandBar({ assets, agent }) {
   return (
     <>
       <BleedRect x={0} y={0} w={TRIM_W} h={h} color={C.green} sides={['left', 'right', 'top']} />
-      <Abs x={M} y={(h - 101 * OP_RATIO) / 2 + 1} w={101}>
-        <OPLogo assets={assets} variant="white" width={101} />
+      <Abs x={M} y={(h - 86 * OP_RATIO) / 2} w={86}>
+        <OPLogo assets={assets} variant="white" width={86} />
       </Abs>
       {showCompass ? (
         <Abs x={TRIM_W - M - 95} y={(h - 95 * (115.75 / 863.19)) / 2}>

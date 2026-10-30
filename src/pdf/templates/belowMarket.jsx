@@ -33,8 +33,8 @@ function make({ id, name, headline, sub, ctaFirst, logo, stock, headSize }) {
     return (
       <Document title={name} author="OriginPoint" creator="pbflyers.janienation.com">
         <Sheet bleed={bleed}>
-          <Abs x={M} y={34} w={200}>
-            <OPLogo assets={assets} variant={logo} width={160} />
+          <Abs x={M} y={24} w={200}>
+            <OPLogo assets={assets} variant={logo} width={150} />
           </Abs>
           <Photo src={d.photoCrop || assets[stock]} x={M} y={84} w={PHOTO_W} h={PHOTO_H} />
           <Abs x={M} y={348} w={CONTENT_W}>

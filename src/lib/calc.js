@@ -63,7 +63,8 @@ export function tempBuydown({ loan, rate, type, termMonths = 360 }) {
   const def = BUYDOWNS[type];
   const full = round2(pmt(loan, rate, termMonths));
   const steps = def.periods.map((p) => {
-    const effRate = round2(rate - p.cut) ; // stays a clean percent
+    // clean up float noise only; keep 1/8-point rates exact (7.125 - 2 = 5.125, not 5.13)
+    const effRate = Math.round((rate - p.cut) * 1e6) / 1e6;
     const payment = round2(pmt(loan, effRate, termMonths));
     const monthlySubsidy = round2(full - payment);
     return { ...p, rate: effRate, payment, monthlySubsidy, subsidy: round2(monthlySubsidy * p.months) };

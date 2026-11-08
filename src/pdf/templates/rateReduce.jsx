@@ -2,7 +2,7 @@ import React from 'react';
 import { Document, View, Text } from '@react-pdf/renderer';
 import { Sheet, Abs, BleedRect, OPLogo, ContactRow, LicenseFooter, Legal, Photo, T, C, S, M, TRIM_W, CONTENT_W } from '../common.jsx';
 import { rateReduceScenario, BUYDOWNS } from '../../lib/calc.js';
-import { money0, pct, shortDate, num } from '../../lib/format.js';
+import { money0, money2, pct, shortDate, num } from '../../lib/format.js';
 
 // Approved disclosure (from the 2-1 and 3-2-1 RateReduce flyers). Only the effective date is filled in.
 export const disclosure = (date) => [
@@ -59,14 +59,14 @@ export function compute(d) {
 const COLS = [128, 128, 132, 152]; // label + 3 scenario columns = 540
 
 // The buydown column (last) gets a soft tint so the seller's option stands out.
-function Row({ id, label, cells, strong = [] }) {
+function Row({ id, label, cells, strong = [], pad = 6.5 }) {
   return (
     <View style={{ flexDirection: 'row', borderBottomWidth: 0.7, borderBottomColor: C.rule }}>
-      <View style={{ width: COLS[0], paddingLeft: 9, paddingVertical: 6.5, justifyContent: 'center' }}>
+      <View style={{ width: COLS[0], paddingLeft: 9, paddingVertical: pad, justifyContent: 'center' }}>
         <T id={`${id}.label`} style={{ fontSize: 9, color: C.tableInk, ...S.bold }} fit={{ w: COLS[0] - 12, lines: 2 }}>{label}</T>
       </View>
       {cells.map((c, i) => (
-        <View key={i} style={{ width: COLS[i + 1], paddingRight: 8, paddingLeft: i === 2 ? 8 : 0, paddingVertical: 6.5, justifyContent: 'center', backgroundColor: i === 2 ? C.colTint : undefined }}>
+        <View key={i} style={{ width: COLS[i + 1], paddingRight: 8, paddingLeft: i === 2 ? 8 : 0, paddingVertical: pad, justifyContent: 'center', backgroundColor: i === 2 ? C.colTint : undefined }}>
           {(Array.isArray(c) ? c : [c]).map((t, k) => (
             <T key={k} id={`${id}.c${i}.${k}`} style={{ fontSize: 9, lineHeight: 1.27, ...(strong.includes(i) ? { ...S.tabBold, color: C.tableInk } : { ...S.tab, color: C.tableGray }) }} fit={{ w: COLS[i + 1] - (i === 2 ? 16 : 8), lines: Array.isArray(c) ? 2 : 3 }}>{t}</T>
           ))}
@@ -84,6 +84,8 @@ export function Doc({ data, agent, assets, bleed }) {
   const typeLabel = BUYDOWNS[d.type].label;
   const stepLines = bd.steps.map((st) => `${money0(st.payment)} ${st.label}`);
   const after = bd.buydownMonths / 12 + 1;
+  // 3-year buydowns add lines to the table; tighten the rows so the disclosure keeps its size
+  const pad = bd.steps.length > 2 ? 4.5 : 6.5;
   return (
     <Document title={`RateReduce ${typeLabel} Buydown`} author="OriginPoint" creator="pbflyers.janienation.com">
       <Sheet bleed={bleed}>
@@ -130,16 +132,17 @@ export function Doc({ data, agent, assets, bleed }) {
               </View>
             ))}
           </View>
-          <Row id="table.price" label="Asking price" cells={[money0(s.price), `Reduced to ${money0(s.reducedPrice)}`, `Remains at ${money0(s.price)}`]} />
-          <Row id="table.loan" label="Loan amount" cells={[money0(s.loanFull), money0(s.loanReduced), money0(s.loanFull)]} />
+          <Row pad={pad} id="table.price" label="Asking price" cells={[money0(s.price), `Reduced to ${money0(s.reducedPrice)}`, `Remains at ${money0(s.price)}`]} />
+          <Row pad={pad} id="table.loan" label="Loan amount" cells={[money0(s.loanFull), money0(s.loanReduced), money0(s.loanFull)]} />
           <Row
+            pad={pad}
             id="table.pi"
             label="Monthly P&I"
             cells={[`${money0(s.fullPI)} ${ratePair}`, `${money0(s.reducedPI)} ${ratePair}`, [...stepLines, `${money0(s.fullPI)} ${ratePair} remaining term`]]}
           />
-          <Row id="table.cost" label="Buydown Cost" cells={['-', '-', money0(bd.totalSubsidy)]} strong={[2]} />
-          <Row id="table.buyer" label="Buyer Impact" cells={['Receives market rate', `Monthly P&I reduced by ${money0(s.piReduction)}`, `${money0(bd.totalSubsidy)} Savings ${bd.def.savingsLabel}`]} strong={[2]} />
-          <Row id="table.seller" label="Seller Impact" cells={['Sells home at asking price', `${money0(s.reduction)} reduction in asking price`, 'No price reduction. Seller pays for buydown']} />
+          <Row pad={pad} id="table.cost" label="Buydown Cost" cells={['-', '-', money0(bd.totalSubsidy)]} strong={[2]} />
+          <Row pad={pad} id="table.buyer" label="Buyer Impact" cells={['Receives market rate', `Monthly P&I reduced by ${money0(s.piReduction)}`, [...bd.steps.map((st) => `Saves ${money2(st.monthlySubsidy)}/mo ${st.label}`), `${money0(bd.totalSubsidy)} Savings ${bd.def.savingsLabel}`]]} strong={[2]} />
+          <Row pad={pad} id="table.seller" label="Seller Impact" cells={['Sells home at asking price', `${money0(s.reduction)} reduction in asking price`, 'No price reduction. Seller pays for buydown']} />
           <Legal paragraphs={disclosure(d.date)} size={6} style={{ marginTop: 8 }} maxH={68} />
         </Abs>
 

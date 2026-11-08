@@ -155,7 +155,27 @@ export default async function handler(req, res) {
   const url = String(req.query.url || '').trim();
   if (!allowed(url)) return res.status(400).json({ error: 'Paste a compass.com agent or listing link.' });
   try {
-    const r = await fetch(url, { headers: { 'User-Agent': UA, Accept: 'text/html', 'Accept-Language': 'en-US,en;q=0.9' }, redirect: 'follow' });
+    const H = req.query.h
+      ? {
+          'User-Agent': UA,
+          Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Accept-Encoding': 'gzip, deflate, br',
+          'Cache-Control': 'no-cache',
+          Pragma: 'no-cache',
+          'Sec-Ch-Ua': '"Chromium";v="129", "Not=A?Brand";v="8", "Google Chrome";v="129"',
+          'Sec-Ch-Ua-Mobile': '?0',
+          'Sec-Ch-Ua-Platform': '"macOS"',
+          'Sec-Fetch-Dest': 'document',
+          'Sec-Fetch-Mode': 'navigate',
+          'Sec-Fetch-Site': 'none',
+          'Sec-Fetch-User': '?1',
+          'Upgrade-Insecure-Requests': '1',
+          Referer: req.query.h === '2' ? 'https://www.google.com/' : undefined,
+        }
+      : { 'User-Agent': UA, Accept: 'text/html', 'Accept-Language': 'en-US,en;q=0.9' };
+    Object.keys(H).forEach((k) => H[k] === undefined && delete H[k]);
+    const r = await fetch(url, { headers: H, redirect: 'follow' });
     if (!r.ok) return res.status(502).json({ error: `Compass returned ${r.status}. Try again or fill the fields by hand.` });
     const html = await r.text();
     const $ = cheerio.load(html);

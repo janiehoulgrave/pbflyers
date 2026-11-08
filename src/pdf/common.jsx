@@ -269,7 +269,7 @@ export const LENDER = {
   email: 'pegah@originpoint.com',
 };
 
-// Licensing footer: required on every flyer (editable only through emergency edits)
+// Licensing footer: required on every flyer (text editable from the Disclosures section)
 export const LICENSE_TEXT =
   'Pegah Bozorgnia NMLS #910362. DC - MLO910362, FL - LO61164, MD - 910362, PA - 61040, VA - MLO-29343VA | OriginPoint LLC; NMLS #2185899; 1800 W Larchmont Ave Suite 305, Chicago, IL 60613; 773-897-6587. For licensing information, visit nmlsconsumeraccess.org. Equal Housing Lender. Conditions may apply. Operating in the state of California as OriginPoint Mortgage LLC in lieu of the legal name OriginPoint LLC.';
 

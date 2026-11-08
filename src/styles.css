@@ -207,3 +207,12 @@ input, select, textarea { font: inherit; color: inherit; }
 .tab:hover { color: var(--ink); }
 .tab.on { color: var(--green); border-bottom-color: var(--green); font-weight: 700; }
 .tab-count { background: var(--green-tint); color: var(--green); border-radius: 999px; font-size: 12px; font-weight: 700; padding: 1px 8px; }
+
+/* disclosures editor */
+.disc { margin-top: 12px; }
+.disc-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; }
+.disc-head em { font-style: normal; color: var(--warn); font-weight: 600; }
+.disc textarea { width: 100%; box-sizing: border-box; font: inherit; font-size: 12px; line-height: 1.45; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; resize: vertical; background: #fff; color: var(--ink); }
+.disc.edited textarea { border-color: var(--warn); }
+.disc + .note { margin-top: 12px; }
+.disc-head .lbl { display: inline; margin: 0; }

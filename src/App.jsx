@@ -433,6 +433,7 @@ function Editor({ project, onSave, canSave, template, data, setData, recentListi
   const [fontsOk, setFontsOk] = useState(false);
   useEffect(() => { fontsReady.then(() => setFontsOk(true)); }, []);
   const registry = useRef({});
+  const [legalItems, setLegalItems] = useState([]); // disclosure text on this flyer, for the sidebar editor
   const overrides = data.overrides || {};
   // QR code (for flyers that have one), generated from the link field
   const [qrCode, setQrCode] = useState(null);
@@ -462,7 +463,11 @@ function Editor({ project, onSave, canSave, template, data, setData, recentListi
     const reg = {};
     buildBlob(inputs, inputs.editMode, reg)
       .then((b) => {
-        if (n === seq.current) registry.current = reg;
+        if (n === seq.current) {
+          registry.current = reg;
+          const items = Object.entries(reg).filter(([, v]) => v.legal).map(([id, v]) => ({ id, def: v.def, label: v.label }));
+          setLegalItems((prev) => (JSON.stringify(prev) === JSON.stringify(items) ? prev : items));
+        }
         return b;
       })
       .then((b) => {
@@ -692,10 +697,28 @@ function Editor({ project, onSave, canSave, template, data, setData, recentListi
           <p className="note">Changes here apply to every flyer.</p>
         </Section>
 
-        <Section title="Locked disclosures" collapsed>
+        <Section title="Disclosures" collapsed>
           <p className="note">
-            The disclosures, licensing line and Equal Housing logo are built into every flyer and can't be edited here. Dates, rates and payment figures inside them fill in automatically from your entries.
+            Edit the disclosure language on this flyer. Dates, rates and payment figures fill in automatically from your entries; once you edit a paragraph it stops updating, so use Reset to bring it back. You can also click a disclosure on the flyer while editing text.
           </p>
+          {legalItems.map((it, i) => {
+            const edited = overrides[it.id] != null;
+            const n = legalItems.slice(0, i + 1).filter((x) => x.label !== 'Licensing line').length;
+            return (
+              <div key={it.id} className={'disc' + (edited ? ' edited' : '')}>
+                <div className="disc-head">
+                  <span className="lbl">{it.label === 'Licensing line' ? 'Licensing line' : `Disclosure ${n}`}{edited ? <em> · edited</em> : null}</span>
+                  {edited ? <button type="button" className="linkbtn" onClick={() => setOverride(it.id, null)}>Reset</button> : null}
+                </div>
+                <textarea
+                  rows={Math.min(8, Math.max(2, Math.ceil(String(edited ? overrides[it.id] : it.def).length / 48)))}
+                  value={edited ? overrides[it.id] : it.def}
+                  onChange={(e) => setOverride(it.id, e.target.value === it.def ? null : e.target.value)}
+                />
+              </div>
+            );
+          })}
+          <p className="note">The Equal Housing logo stays on every flyer.</p>
         </Section>
       </aside>
 

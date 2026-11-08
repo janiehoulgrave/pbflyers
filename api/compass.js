@@ -159,6 +159,12 @@ export default async function handler(req, res) {
     if (!r.ok) return res.status(502).json({ error: `Compass returned ${r.status}. Try again or fill the fields by hand.` });
     const html = await r.text();
     const $ = cheerio.load(html);
+    if (req.query.debug) {
+      const og = $('meta[property="og:title"]').attr('content');
+      const scripts = [];
+      $('script').each((_, el) => scripts.push({ type: $(el).attr('type') || '', id: $(el).attr('id') || '', len: ($(el).html() || '').length, head: ($(el).html() || '').slice(0, 160) }));
+      return res.status(200).json({ status: r.status, finalUrl: r.url, len: html.length, title: $('title').text(), og, h1: $('h1').first().text(), metas: $('meta').map((_, el) => ($(el).attr('property') || $(el).attr('name') || '') + '=' + ($(el).attr('content') || '').slice(0, 120)).get().slice(0, 40), scripts: scripts.slice(0, 60), body: $('body').text().replace(/\s+/g, ' ').slice(0, 1500) });
+    }
     const path = new URL(r.url || url).pathname;
     const data = path.startsWith('/agents/') ? parseAgent($, html, url) : path.includes('/homedetails/') || path.includes('/listing/') ? parseListing($, html, url) : null;
     if (!data) return res.status(400).json({ error: 'That link is not an agent page or a listing page.' });

@@ -56,6 +56,38 @@ function longestString(obj, key, best = '', depth = 0) {
   return best;
 }
 
+// Listing pages sit behind a bot check, so the address can be read from the link itself:
+// /homedetails/2304-Fairview-Ter-Alexandria-VA-22303/1U8TAI_pid/  or  /listing/6007-34th-Pl-NW-Washington-DC-20015/123/
+const SUFFIX = new Set('st street ave av avenue rd road dr drive ln lane ct court pl place ter terrace way blvd boulevard cir circle pkwy parkway hwy highway trl trail sq square row run loop pike xing aly alley walk path pt point cv cove grv grove hl hill hts heights mews plz plaza crk creek cres crescent lndg landing gtwy rdg ridge vw view knl knoll bnd bend psge'.split(' '));
+const DIR = new Set(['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw']);
+const UNIT = new Set(['unit', 'apt', 'ste', 'suite', '#', 'no']);
+const cap = (w) => (DIR.has(w.toLowerCase()) ? w.toUpperCase() : /^\d/.test(w) ? w.toLowerCase() : w.charAt(0).toUpperCase() + w.slice(1));
+export function addressFromUrl(u) {
+  try {
+    const parts = new URL(u).pathname.split('/').filter(Boolean);
+    const i = parts.findIndex((p) => p === 'homedetails' || p === 'listing');
+    const slug = decodeURIComponent(parts[i + 1] || '');
+    const t = slug.split('-').filter(Boolean);
+    if (t.length < 3) return null;
+    let zip = '';
+    let state = '';
+    if (/^\d{5}$/.test(t[t.length - 1])) zip = t.pop();
+    if (/^[A-Za-z]{2}$/.test(t[t.length - 1])) state = t.pop().toUpperCase();
+    // the street ends at the last street type (plus a direction and a unit), the city is what follows
+    let end = -1;
+    for (let k = t.length - 2; k >= 1; k--) if (SUFFIX.has(t[k].toLowerCase())) { end = k; break; }
+    if (end === -1) end = Math.max(0, t.length - 2);
+    if (t[end + 1] && DIR.has(t[end + 1].toLowerCase()) && end + 2 < t.length) end++;
+    if (t[end + 1] && UNIT.has(t[end + 1].toLowerCase()) && end + 3 < t.length) end += 2;
+    const street = t.slice(0, end + 1).map(cap).join(' ').replace(/\b(Unit|Apt|Ste|Suite) /, '$1 ');
+    const city = t.slice(end + 1).map(cap).join(' ');
+    if (!street || !city) return null;
+    return { street, city, state, zip };
+  } catch {
+    return null;
+  }
+}
+
 function parseListing($, html, url) {
   const og = (p) => $(`meta[property="og:${p}"]`).attr('content') || $(`meta[name="og:${p}"]`).attr('content');
   const title = og('title') || $('title').text();
@@ -159,6 +191,13 @@ export default async function handler(req, res) {
     if (!r.ok) return res.status(502).json({ error: `Compass returned ${r.status}. Try again or fill the fields by hand.` });
     const html = await r.text();
     const $ = cheerio.load(html);
+    const blocked = r.status === 202 || /AwsWafIntegration|verify that you're not a robot/i.test(html.slice(0, 5000));
+    if (blocked && /\/(homedetails|listing)\//.test(url)) {
+      const a = addressFromUrl(url);
+      if (!a) return res.status(502).json({ error: 'Compass didn’t share this listing’s details. Fill in the address by hand.' });
+      res.setHeader('Cache-Control', 's-maxage=600');
+      return res.status(200).json({ type: 'listing', url, ...a, price: null, description: '', photos: [], partial: true });
+    }
     const path = new URL(r.url || url).pathname;
     const data = path.startsWith('/agents/') ? parseAgent($, html, url) : path.includes('/homedetails/') || path.includes('/listing/') ? parseListing($, html, url) : null;
     if (!data) return res.status(400).json({ error: 'That link is not an agent page or a listing page.' });

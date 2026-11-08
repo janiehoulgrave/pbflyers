@@ -876,7 +876,7 @@ function LinkPull({ value, placeholder, onPull, kind }) {
       const j = await pullCompass(url);
       if (j.type !== kind) throw new Error(kind === 'agent' ? 'That looks like a listing link. Paste the agent’s profile link here.' : 'That looks like an agent link. Paste the listing link here.');
       onPull(j);
-      setState({ busy: false, msg: 'ok' });
+      setState({ busy: false, msg: j.partial ? 'partial' : 'ok' });
     } catch (e) {
       setState({ busy: false, msg: e.message });
     }
@@ -887,7 +887,8 @@ function LinkPull({ value, placeholder, onPull, kind }) {
         <input value={url} placeholder={placeholder} onChange={(e) => setUrl(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && go()} />
         <button type="button" className="btn small primary" disabled={state.busy} onClick={go}>{state.busy ? 'Pulling…' : 'Pull info'}</button>
       </div>
-      {state.msg && state.msg !== 'ok' ? <span className="warn-inline">{state.msg}</span> : null}
+      {state.msg && state.msg !== 'ok' && state.msg !== 'partial' ? <span className="warn-inline">{state.msg}</span> : null}
+      {state.msg === 'partial' ? <span className="warn-inline">Compass only shared the address for this listing. Add the list price and description below, and upload a photo in the Photo section.</span> : null}
       {state.msg === 'ok' ? <span className="ok-inline">Pulled. Check the details below.</span> : null}
     </div>
   );

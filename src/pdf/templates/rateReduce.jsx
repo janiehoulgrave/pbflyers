@@ -67,9 +67,16 @@ function Row({ id, label, cells, strong = [], pad = 6.5 }) {
       </View>
       {cells.map((c, i) => (
         <View key={i} style={{ width: COLS[i + 1], paddingRight: 8, paddingLeft: i === 2 ? 8 : 0, paddingVertical: pad, justifyContent: 'center', backgroundColor: i === 2 ? C.colTint : undefined }}>
-          {(Array.isArray(c) ? c : [c]).map((t, k) => (
-            <T key={k} id={`${id}.c${i}.${k}`} style={{ fontSize: 9, lineHeight: 1.27, ...(strong.includes(i) ? { ...S.tabBold, color: C.tableInk } : { ...S.tab, color: C.tableGray }) }} fit={{ w: COLS[i + 1] - (i === 2 ? 16 : 8), lines: Array.isArray(c) ? 2 : 3 }}>{t}</T>
-          ))}
+          {(Array.isArray(c) ? c : [c]).map((t, k) => {
+            // a line can be { text, plain: true } to drop the bold inside a bold cell
+            const plain = t && typeof t === 'object' && t.plain;
+            const bold = strong.includes(i) && !plain;
+            return (
+              <T key={k} id={`${id}.c${i}.${k}`} style={{ fontSize: 9, lineHeight: 1.27, ...(bold ? { ...S.tabBold, color: C.tableInk } : { ...S.tab, color: plain ? C.tableInk : C.tableGray }) }} fit={{ w: COLS[i + 1] - (i === 2 ? 16 : 8), lines: Array.isArray(c) ? 2 : 3 }}>
+                {plain ? t.text : t}
+              </T>
+            );
+          })}
         </View>
       ))}
     </View>
@@ -141,7 +148,7 @@ export function Doc({ data, agent, assets, bleed }) {
             cells={[`${money0(s.fullPI)} ${ratePair}`, `${money0(s.reducedPI)} ${ratePair}`, [...stepLines, `${money0(s.fullPI)} ${ratePair} remaining term`]]}
           />
           <Row pad={pad} id="table.cost" label="Buydown Cost" cells={['-', '-', money0(bd.totalSubsidy)]} strong={[2]} />
-          <Row pad={pad} id="table.buyer" label="Buyer Impact" cells={['Receives market rate', `Monthly P&I reduced by ${money0(s.piReduction)}`, [...bd.steps.map((st) => `Saves ${money2(st.monthlySubsidy)}/mo ${st.label}`), `${money0(bd.totalSubsidy)} Savings ${bd.def.savingsLabel}`]]} strong={[2]} />
+          <Row pad={pad} id="table.buyer" label="Buyer Impact" cells={['Receives market rate', `Monthly P&I reduced by ${money0(s.piReduction)}`, [...bd.steps.map((st) => `Saves ${money2(st.monthlySubsidy)}/mo ${st.label}`), { text: `(${money0(bd.totalSubsidy)} total savings, ${bd.def.savingsLabel})`, plain: true }]]} strong={[2]} />
           <Row pad={pad} id="table.seller" label="Seller Impact" cells={['Sells home at asking price', `${money0(s.reduction)} reduction in asking price`, 'No price reduction. Seller pays for buydown']} />
           <Legal paragraphs={disclosure(d.date)} size={6} style={{ marginTop: 8 }} maxH={68} />
         </Abs>

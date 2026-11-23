@@ -34,6 +34,41 @@ In the Firebase console: Firestore Database, Rules tab. Paste these two blocks i
     }
 ```
 
+## Gift Center (pbflyers.janienation.com/#gifts)
+
+A gallery of client thank-you gifts with prices that are checked every morning, for free.
+Pegah sees the gallery. Janie's two accounts also see **Add gift**, **Edit**, **Check price** and **Hide**.
+
+**One-time setup**
+
+1. **Firestore rule.** In the Firebase console for pegah-briefing: Firestore Database, Rules tab. Add this block next to the
+   pbflyers ones and Publish. Everyone signed in can read; only Janie's accounts can add, edit or delete.
+   ```
+       match /pbflyers_gifts/{id} {
+         allow read: if request.auth != null && request.auth.token.email in
+           ['pegah@originpoint.com', 'janie.houlgrave@compass.com', 'janiehoulgrave@gmail.com'];
+         allow write: if request.auth != null && request.auth.token.email in
+           ['janie.houlgrave@compass.com', 'janiehoulgrave@gmail.com'];
+       }
+   ```
+2. **Daily price check.** Firebase console, Project settings, Service accounts, **Generate new private key**
+   (the same key PB Studio uses as `FIREBASE_SERVICE_ACCOUNT` works). In GitHub: this repo, Settings, Secrets and variables,
+   Actions, **New repository secret**, name `FIREBASE_SERVICE_ACCOUNT`, paste the whole JSON file as the value.
+   The check runs at 6 AM Eastern once this branch is on `main`. To run it now: Actions tab, **Gift prices**, **Run workflow**.
+
+**How prices work**
+
+- The check opens each product page once a day and reads the price from the page's built-in product data
+  (schema.org JSON-LD, then product meta tags). No paid services and no Google Shopping.
+- If a site blocks the check, the last known price stays on the card with its date, and Janie's view flags it.
+  Set the price by hand from **Edit**. A hand-set price is shown until it is cleared.
+- New gifts are checked as soon as they are saved, then every morning. Hidden gifts are still checked.
+- GitHub pauses scheduled jobs in repos with no activity for 60 days. If that happens, the Actions tab shows a button to turn it back on.
+
+**Where things are:** `src/Gifts.jsx` (page and form), `src/lib/gifts.js` (Firestore), `src/lib/giftPrice.js` (shared price rules),
+`api/_price.js` (reads a product page), `api/product.js` (fills the Add gift form), `scripts/check-prices.mjs` and
+`.github/workflows/gift-prices.yml` (the daily check). `npm test` checks the price reader.
+
 ## What's where
 
 - `src/pdf/templates/` one file per flyer family. Disclosure text lives here and is locked in the app.

@@ -6,8 +6,7 @@ import { registerFonts, EditCtx, setMeasurer } from './pdf/common.jsx';
 import { Field, PhotoControl, AprFields, LoanColumns, Label } from './components/Fields.jsx';
 import Preview from './components/Preview.jsx';
 import { proxied, cropToDataURL, circleDataURL, effectiveDpi, downscale } from './lib/images.js';
-import { authEnabled, watchUser, signIn, logOut, isAllowed, isAdmin, whoIs } from './lib/firebase.js';
-import GiftCenter from './Gifts.jsx';
+import { authEnabled, watchUser, signIn, logOut, isAllowed, whoIs } from './lib/firebase.js';
 import { getStore } from './lib/projects.js';
 import { pdfThumb } from './lib/thumb.js';
 import { ordinal, num, todayISO, shortDate } from './lib/format.js';
@@ -99,19 +98,7 @@ function Studio({ user }) {
   // The flyer being worked on: { templateId, projectId, name, data, dirty }
   const [work, setWork] = useState(initial.work && byId(initial.work.templateId) ? initial.work : null);
   const [tab, setTab] = useState(initial.tab || 'new');
-  // #gifts opens the Gift Center directly
-  const [view, setView] = useState(() =>
-    typeof location !== 'undefined' && location.hash === '#gifts' ? 'gifts' : initial.view === 'editor' && initial.work ? 'editor' : 'gallery'
-  );
-  useEffect(() => {
-    const want = view === 'gifts' ? '#gifts' : '';
-    if (location.hash !== want) history.replaceState(null, '', location.pathname + location.search + want);
-  }, [view]);
-  useEffect(() => {
-    const onHash = () => setView((v) => (location.hash === '#gifts' ? 'gifts' : v === 'gifts' ? 'gallery' : v));
-    window.addEventListener('hashchange', onHash);
-    return () => window.removeEventListener('hashchange', onHash);
-  }, []);
+  const [view, setView] = useState(initial.view === 'editor' && initial.work ? 'editor' : 'gallery');
   // Each flyer keeps its own listing and agent (in its data); recents make it quick to reuse one
   const [recentListings, setRecentListings] = useState(
     initial.recentListings || (initial.listing?.street ? [{ ...emptyListing, ...initial.listing }] : [])
@@ -199,19 +186,13 @@ function Studio({ user }) {
       <header className="topbar">
         <button className="brand" onClick={() => setView('gallery')}>
           <img src={BASE + "brand/op-black.png"} alt="OriginPoint" />
-          <span>{view === 'gifts' ? 'Gift Center' : 'Flyer Studio'}</span>
+          <span>Flyer Studio</span>
         </button>
         {view === 'editor' ? <button className="btn ghost small" onClick={() => setView('gallery')}>All flyers</button> : null}
         <div className="spacer" />
-        <nav className="topnav">
-          <button className={view !== 'gifts' ? 'on' : ''} onClick={() => setView('gallery')}>Flyers</button>
-          <button className={view === 'gifts' ? 'on' : ''} onClick={() => { setView('gifts'); window.scrollTo(0, 0); }}>Gift Center</button>
-        </nav>
         {user ? <button className="btn ghost small" onClick={logOut} title={user.email}>Sign out</button> : null}
       </header>
-      {view === 'gifts' ? (
-        <GiftCenter who={who} admin={isAdmin(user)} />
-      ) : view === 'gallery' || !work ? (
+      {view === 'gallery' || !work ? (
         <Gallery
           tab={tab}
           setTab={setTab}

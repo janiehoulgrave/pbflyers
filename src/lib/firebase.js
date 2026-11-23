@@ -14,8 +14,6 @@ export const firebaseConfig = {
 
 // Only these Google accounts can use the app
 export const ALLOWED_EMAILS = ['pegah@originpoint.com', 'janie.houlgrave@compass.com', 'janiehoulgrave@gmail.com'];
-// Janie's accounts: only these see the Gift Center's add, edit, hide and delete controls
-export const ADMIN_EMAILS = ['janie.houlgrave@compass.com', 'janiehoulgrave@gmail.com'];
 
 // VITE_NO_AUTH=1 is only used for local testing and the shared preview; the live site always requires sign-in.
 export const authEnabled = Boolean(firebaseConfig.apiKey) && !import.meta.env.VITE_NO_AUTH;
@@ -28,11 +26,6 @@ if (authEnabled) {
 }
 
 export const isAllowed = (user) => !!user && ALLOWED_EMAILS.includes((user.email || '').toLowerCase());
-// Local preview has no sign-in: it shows Janie's view, or Pegah's with ?as=pegah in the address
-export const isAdmin = (user) =>
-  authEnabled
-    ? !!user && ADMIN_EMAILS.includes((user.email || '').toLowerCase())
-    : typeof location === 'undefined' || !/[?&]as=pegah\b/.test(location.search);
 export const watchUser = (cb) => (auth ? onAuthStateChanged(auth, cb) : (cb(null), () => {}));
 export const signIn = () => signInWithPopup(auth, new GoogleAuthProvider());
 export const logOut = () => auth && signOut(auth);
